@@ -59,7 +59,7 @@ func RunGenerate(modelName string, pbFile string, importPath string) {
 
 	for _, code := range keys {
 		enumName := enumMap[code]
-		varName := toExportedName(enumName)
+		varName := toExportedNameCamel(enumName)
 		fullEnum := "errorcode.ErrorCode_" + enumName
 		fmt.Fprintf(f, "var %s = NewErrorFromCodeAutoMsg(%s)\n", varName, fullEnum)
 	}
@@ -67,8 +67,21 @@ func RunGenerate(modelName string, pbFile string, importPath string) {
 	fmt.Println("✅ 错误变量已生成:", outFile, "模型:", modelName)
 }
 
-func toExportedName(name string) string {
-	parts := regexp.MustCompile("_").Split(name, -1)
+func splitCamelCase(s string) []string {
+	var result []string
+	var last int
+	for i := 1; i < len(s); i++ {
+		if isUpper := 'A' <= s[i] && s[i] <= 'Z'; isUpper {
+			result = append(result, s[last:i])
+			last = i
+		}
+	}
+	result = append(result, s[last:])
+	return result
+}
+
+func toExportedNameCamel(s string) string {
+	parts := splitCamelCase(s)
 	for i, p := range parts {
 		parts[i] = strings.Title(strings.ToLower(p))
 	}
