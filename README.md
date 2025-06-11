@@ -3,6 +3,8 @@
 > generrorx is a CLI tool for generating Go error code wrappers from Protocol Buffer definitions.  
 > generrorx 是一个从 Protocol Buffer 定义生成 Go 错误代码包装器的命令行工具。
 
+**即使用proto文件中定义的错误码和错误名生成对应的错误变量和错误包装函数，减少定义错误码和错误名后还需要定义go的error变量的重复工作**。
+
 ## Features / 特性
 
 - Initialize a new error.proto template (`create`)  
