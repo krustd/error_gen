@@ -7,12 +7,14 @@
 
 ## Features / 特性
 
-- Initialize a new error.proto template (`create`)  
+- Initialize a new error.proto template (`create`)
   在当前目录生成 `error.proto` 模板 (`create`)
-- Compile `.proto` to Go using `protoc` (`build`)  
+- Compile `.proto` to Go using `protoc` (`build`)
   使用 `protoc` 将 `.proto` 文件编译为 Go 代码 (`build`)
-- Generate error variables and wrapper functions (`gen`)  
+- Generate error variables and wrapper functions (`gen`)
   自动生成错误变量及封装函数 (`gen`)
+- Auto-generate all artifacts in one command (`auto`)
+  一键自动生成所有文件 (`auto`)
 
 ## Prerequisites / 前置条件
 
@@ -23,24 +25,24 @@
 ## Installation / 安装
 
 ```bash
-# Install as a Go CLI tool (like goctl)
-go install github.com/yourusername/generrorx@latest
+# 安装为全局CLI工具 (类似goctl)
+go install github.com/krustd/error_gen@latest
 
-# For Go <1.17, use go get
-go get -u github.com/yourusername/generrorx
-
-# Run without installation
-go run github.com/yourusername/generrorx create
+# Go <1.17 使用 go get
+go get -u github.com/krustd/error_gen
+# 不安装直接运行
+go run github.com/krustd/error_gen/generrorx create
 ```
-Ensure `$GOPATH/bin` or `$HOME/go/bin` is in your PATH. / 确保 `$GOPATH/bin` 或 `$HOME/go/bin` 在你的 PATH 中。
+>
+> Ensure `$GOPATH/bin` or `$HOME/go/bin` is in your PATH. / 确保 `$GOPATH/bin` 或 `$HOME/go/bin` 在你的 PATH 中。
 ## From Source / 从源码构建
 
 > 直接从源码构建并安装，可像 `goctl` 一样将 `generrorx` 作为全局 CLI 工具使用。
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/generrorx.git
-cd generrorx
+# 克隆仓库
+git clone https://github.com/krustd/error_gen.git
+cd error_gen
 
 # Build the CLI binary
 go build -o generrorx main.go
@@ -89,6 +91,31 @@ generrorx build [-p path/to/error.proto]
 
 ```bash
 generrorx gen -m <modelName> [-p <pbfile>] [-i <importPath>]
+
+**示例**:
+```bash
+# 生成错误包装代码到pkg/errors目录
+generrorx gen -m errors -p ./errorcode/error.pb.go -i "/project/pkg/errors"
+
+# 使用默认参数
+generrorx gen -m apperrors
+```
+
+### 4. Auto / 自动生成
+
+```bash
+generrorx auto [-m <modelName>] [-p <pbfile>] [-i <importPath>]
+```
+
+自动执行完整流程：
+1. 检查并创建error.proto模板（如不存在）
+2. 编译proto文件
+3. 生成错误包装代码
+
+**示例**:
+```bash
+# 全自动生成错误处理代码
+generrorx auto -m apperrors
 ```
 
 - `-m`, `--modelname`：生成文件的 Go 包名（必填）  
@@ -96,19 +123,24 @@ generrorx gen -m <modelName> [-p <pbfile>] [-i <importPath>]
 - `-i`, `--importpath`：生成的 protobuf 包导入路径，默认为 `<modelName>/errorcode`
 
 生成文件：  
-- `errors_gen.go`：错误变量定义  
+- `errors_gen.go`：错误变量定义（包含错误代码和消息映射）
 - `wrap.go`：包含 gRPC/HTTP 错误封装逻辑
+- `doc.md`：错误代码文档（可选，通过`-d`参数生成）
 
 ## Project Structure / 项目结构
+
+项目实际结构如下（更新于2025年6月）：
 
 ```
 .
 ├── cmd
-│   ├── create.go
 │   ├── build.go
+│   ├── create.go
 │   └── generate.go
-├── main.go
 ├── go.mod
+├── go.sum
+├── LICENSE
+├── main.go
 └── README.md
 ```
 
@@ -119,3 +151,4 @@ generrorx gen -m <modelName> [-p <pbfile>] [-i <importPath>]
 ## License / 许可证
 
 本项目基于 GPL-3.0 发布。 / Licensed under the GNU GPLv3 License.
+
