@@ -110,45 +110,43 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
-type CustomError struct {
+type Error struct {
 	Code    int    // 错误码
 	Message string // 错误消息
 }
-func (e *CustomError) ToGrpcError() error {
-	var grpcCode codes.Code
-	grpcCode = codes.Unknown
 
-	// 将 Details 序列化为 JSON 字符串
-	return status.Errorf(grpcCode, "code: %%d, message: %%s, details: %%s", e.Code, e.Message, "")
-}
-
-func (e *CustomError) ToHttpError() []byte {
-	resp := map[string]interface{}{
-		"code":    e.Code,
-		"message": e.Message,
+func (err *Error) Error() string {
+	if err == nil {
+		return ""
 	}
 
-	data, err := json.Marshal(resp)
-	if err != nil {
-		// 出现序列化错误，返回简化错误信息
-		fallback := map[string]interface{}{
-			"code":    500,
-			"message": "internal server error",
+	errStr := err.text
+
+	// 如果 text 为空但是有 code，就用 code 的 message
+	if errStr == "" && err.code != nil {
+		errStr = err.code.Message()
+	}
+
+	// 如果内部还有嵌套 error，就拼接上去
+	if err.error != nil {
+		if errStr != "" {
+			errStr += ": "
 		}
-		fallbackData, _ := json.Marshal(fallback)
-		return fallbackData
+		errStr += err.error.Error()
 	}
-	return data
+
+	return errStr
 }
 
-func NewError(code int, message string) *CustomError {
-	return &CustomError{
+
+func NewError(code int, message string) *Error {
+	return &Error{
 		Code:    code,
 		Message: message,
 	}
 }
 
-func NewErrorFromCodeAutoMsg(code errorcode.ErrorCode) *CustomError {
+func NewErrorFromCodeAutoMsg(code errorcode.ErrorCode) *Error {
 	return NewError(int(code), code.String()) // 自动用枚举名作为 message
 }
 
