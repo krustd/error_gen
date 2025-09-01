@@ -105,50 +105,48 @@ func generateWrapFile(outFile string, modelName string, importPath string) {
 package %s
 
 import (
-	"encoding/json"
 	errorcode "%s"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
+
 type Error struct {
 	Code    int    // 错误码
 	Message string // 错误消息
+	Err     error  // 可选，嵌套的原始错误
 }
 
-func (err *Error) Error() string {
-	if err == nil {
+func (e *Error) Error() string {
+	if e == nil {
 		return ""
 	}
 
-	errStr := err.text
+	errStr := e.Message
 
-	// 如果 text 为空但是有 code，就用 code 的 message
-	if errStr == "" && err.code != nil {
-		errStr = err.code.Message()
-	}
-
-	// 如果内部还有嵌套 error，就拼接上去
-	if err.error != nil {
+	if e.Err != nil {
 		if errStr != "" {
 			errStr += ": "
 		}
-		errStr += err.error.Error()
+		errStr += e.Err.Error()
 	}
 
 	return errStr
 }
 
-
-func NewError(code int, message string) *Error {
+func NewError(code int, message string, errs ...error) *Error {
+	var inner error
+	if len(errs) > 0 {
+		inner = errs[0]
+	}
 	return &Error{
 		Code:    code,
 		Message: message,
+		Err:     inner,
 	}
 }
 
-func NewErrorFromCodeAutoMsg(code errorcode.ErrorCode) *Error {
-	return NewError(int(code), code.String()) // 自动用枚举名作为 message
+func NewErrorFromCodeAutoMsg(code errorcode.ErrorCode, errs ...error) *Error {
+	return NewError(int(code), code.String(), errs...)
 }
+
 
 `, modelName, importPath)
 }
