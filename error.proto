@@ -1,0 +1,7 @@
+syntax = "proto3";
+package errorcode;
+option go_package = "./errorcode";
+
+enum ErrorCode {
+    UNKNOWN = 0; // 未知错误
+}

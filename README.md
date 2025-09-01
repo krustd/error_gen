@@ -19,8 +19,12 @@
 ## Prerequisites / 前置条件
 
 - Go 1.x  
-- Protocol Buffer Compiler (`protoc`)  
-- Go `protoc-gen-go` plugin
+- Protocol Buffer Compiler (`protoc`)  / 安装软件`protoc`、`protobuf`
+- Go `protoc-gen-go` plugin / 安装`protoc-gen-go`插件
+- ```bash
+  go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+  go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+  ```
 
 ## Installation / 安装
 
