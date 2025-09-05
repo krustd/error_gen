@@ -10,15 +10,14 @@ import (
 )
 
 func RunGenerate(modelName string, pbFile string, importPath string) {
-	// 假设固定路径（或后续用 flag 参数）
-	// const pbFile = "errorx/errorcode/error.pb.go"
-
 	const (
 		outFile  = "./errors_gen.go"
 		wrapFile = "./wrap.go"
 	)
 	generateWrapFile(wrapFile, modelName, importPath)
 	fmt.Println("✅ 生成完成:  - 包装逻辑:", wrapFile)
+
+	// 读取枚举
 	enumMap := make(map[int]string)
 	entryRe := regexp.MustCompile(`\s*(\d+):\s*"([^"]+)"`)
 
@@ -46,6 +45,9 @@ func RunGenerate(modelName string, pbFile string, importPath string) {
 	}
 	sort.Ints(keys)
 
+	// 先解析旧文件里的 keep 标记
+	keepMap := parseKeepVars(outFile)
+
 	// 写入 go 文件
 	f, err := os.Create(outFile)
 	if err != nil {
@@ -61,11 +63,52 @@ func RunGenerate(modelName string, pbFile string, importPath string) {
 		enumName := enumMap[code]
 		varName := toExportedNameCamel(enumName)
 		fullEnum := "errorcode.ErrorCode_" + enumName
-		fmt.Fprintf(f, "var %s = NewErrorFromCodeAutoMsg(%s)\n", varName, fullEnum)
+
+		// 如果用户在旧文件标记了 keep，则保留原行
+		if line, ok := keepMap[varName]; ok {
+			fmt.Fprintln(f, line)
+		} else {
+			fmt.Fprintf(f, "var %s = NewErrorFromCodeAutoMsg(%s)\n", varName, fullEnum)
+		}
 	}
 
 	fmt.Println("✅ 错误变量已生成:", outFile, "模型:", modelName)
 }
+
+// ----------------- 新增方法 -----------------
+
+// parseKeepVars 解析旧文件中带有 `// +generrorx:keep` 的变量行
+func parseKeepVars(file string) map[string]string {
+	result := make(map[string]string)
+
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return result // 文件不存在时直接返回空
+	}
+	lines := strings.Split(string(data), "\n")
+
+	// 匹配形如：var ErrXXX = ...
+	re := regexp.MustCompile(`var\s+(\w+)\s+=`)
+
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		if strings.Contains(line, "// +generrorx:keep") {
+			// 下一行应该是变量声明
+			if i+1 < len(lines) {
+				next := lines[i+1]
+				m := re.FindStringSubmatch(next)
+				if len(m) == 2 {
+					varName := m[1]
+					// 保留注释 + 变量行
+					result[varName] = line + "\n" + next
+				}
+			}
+		}
+	}
+	return result
+}
+
+// ----------------- 你原来的工具方法 -----------------
 
 func splitCamelCase(s string) []string {
 	var result []string
@@ -93,6 +136,7 @@ func toInt(s string) int {
 	fmt.Sscanf(s, "%d", &i)
 	return i
 }
+
 func generateWrapFile(outFile string, modelName string, importPath string) {
 	f, err := os.Create(outFile)
 	if err != nil {
@@ -105,48 +149,50 @@ func generateWrapFile(outFile string, modelName string, importPath string) {
 package %s
 
 import (
+	"encoding/json"
 	errorcode "%s"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
-
 type Error struct {
 	Code    int    // 错误码
 	Message string // 错误消息
-	Err     error  // 可选，嵌套的原始错误
 }
 
-func (e *Error) Error() string {
-	if e == nil {
+func (err *Error) Error() string {
+	if err == nil {
 		return ""
 	}
 
-	errStr := e.Message
+	errStr := err.text
 
-	if e.Err != nil {
+	// 如果 text 为空但是有 code，就用 code 的 message
+	if errStr == "" && err.code != nil {
+		errStr = err.code.Message()
+	}
+
+	// 如果内部还有嵌套 error，就拼接上去
+	if err.error != nil {
 		if errStr != "" {
 			errStr += ": "
 		}
-		errStr += e.Err.Error()
+		errStr += err.error.Error()
 	}
 
 	return errStr
 }
 
-func NewError(code int, message string, errs ...error) *Error {
-	var inner error
-	if len(errs) > 0 {
-		inner = errs[0]
-	}
+
+func NewError(code int, message string) *Error {
 	return &Error{
 		Code:    code,
 		Message: message,
-		Err:     inner,
 	}
 }
 
-func NewErrorFromCodeAutoMsg(code errorcode.ErrorCode, errs ...error) *Error {
-	return NewError(int(code), code.String(), errs...)
+func NewErrorFromCodeAutoMsg(code errorcode.ErrorCode) *Error {
+	return NewError(int(code), code.String()) // 自动用枚举名作为 message
 }
-
 
 `, modelName, importPath)
 }
