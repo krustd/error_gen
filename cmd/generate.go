@@ -171,17 +171,24 @@ func (err *Error) Error() string {
 
 
 func NewError(code int, message string,err ...error) *Error {
+	var nestedErr error
+	if len(err) > 0 {
+		nestedErr = err[0]
+	}
 	return &Error{
 		code:    code,
 		message: message,
-		err:	 err[0],
+		err:	 nestedErr,
 	}
 }
 
 func NewErrorFromCodeAutoMsg(code errorcode.ErrorCode,err ...error) *Error {
-	return NewError(int(code), code.String()) // 自动用枚举名作为 message
+	var nestedErr error
+	if len(err) > 0 {
+		nestedErr = err[0]
+	}
+	return NewError(int(code), code.String(),nestedErr) // 自动用枚举名作为 message
 }
-
 
 func (err *Error) Code() int{
 	return err.code
