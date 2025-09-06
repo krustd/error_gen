@@ -182,9 +182,24 @@ func NewErrorFromCodeAutoMsg(code errorcode.ErrorCode,err ...error) *Error {
 	return NewError(int(code), code.String()) // 自动用枚举名作为 message
 }
 
+
 func (err *Error) Code() int{
 	return err.code
 }
+
+func (err *Error) Unwrap() error {
+	return err.err
+}
+
+func Wrap(err *Error,message string) error{
+	newerr := Error{
+		code:    err.Code(),
+		message: message,
+		err:     err,
+	}
+	return &newerr
+}
+
 
 
 `, modelName, importPath)
