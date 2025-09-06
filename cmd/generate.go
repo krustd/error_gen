@@ -17,7 +17,6 @@ func RunGenerate(modelName string, pbFile string, importPath string) {
 	generateWrapFile(wrapFile, modelName, importPath)
 	fmt.Println("✅ 生成完成:  - 包装逻辑:", wrapFile)
 
-	// 读取枚举
 	enumMap := make(map[int]string)
 	entryRe := regexp.MustCompile(`\s*(\d+):\s*"([^"]+)"`)
 
@@ -38,17 +37,14 @@ func RunGenerate(modelName string, pbFile string, importPath string) {
 		}
 	}
 
-	// 排序输出
 	keys := make([]int, 0, len(enumMap))
 	for k := range enumMap {
 		keys = append(keys, k)
 	}
 	sort.Ints(keys)
 
-	// 先解析旧文件里的 keep 标记
 	keepMap := parseKeepVars(outFile)
 
-	// 写入 go 文件
 	f, err := os.Create(outFile)
 	if err != nil {
 		panic(err)
@@ -75,8 +71,6 @@ func RunGenerate(modelName string, pbFile string, importPath string) {
 	fmt.Println("✅ 错误变量已生成:", outFile, "模型:", modelName)
 }
 
-// ----------------- 新增方法 -----------------
-
 // parseKeepVars 解析旧文件中带有 `// +generrorx:keep` 的变量行
 func parseKeepVars(file string) map[string]string {
 	result := make(map[string]string)
@@ -87,19 +81,16 @@ func parseKeepVars(file string) map[string]string {
 	}
 	lines := strings.Split(string(data), "\n")
 
-	// 匹配形如：var ErrXXX = ...
 	re := regexp.MustCompile(`var\s+(\w+)\s+=`)
 
 	for i := 0; i < len(lines); i++ {
 		line := lines[i]
 		if strings.Contains(line, "// +generrorx:keep") {
-			// 下一行应该是变量声明
 			if i+1 < len(lines) {
 				next := lines[i+1]
 				m := re.FindStringSubmatch(next)
 				if len(m) == 2 {
 					varName := m[1]
-					// 保留注释 + 变量行
 					result[varName] = line + "\n" + next
 				}
 			}
@@ -107,8 +98,6 @@ func parseKeepVars(file string) map[string]string {
 	}
 	return result
 }
-
-// ----------------- 你原来的工具方法 -----------------
 
 func splitCamelCase(s string) []string {
 	var result []string
@@ -149,14 +138,12 @@ func generateWrapFile(outFile string, modelName string, importPath string) {
 package %s
 
 import (
-	"encoding/json"
 	errorcode "%s"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 type Error struct {
-	Code    int    // 错误码
-	Message string // 错误消息
+	code    int    // 错误码
+	message string // 错误消息
+	err		error  // 嵌套错误（可选）
 }
 
 func (err *Error) Error() string {
@@ -164,35 +151,41 @@ func (err *Error) Error() string {
 		return ""
 	}
 
-	errStr := err.text
+	errStr := err.message
 
 	// 如果 text 为空但是有 code，就用 code 的 message
-	if errStr == "" && err.code != nil {
-		errStr = err.code.Message()
+	if errStr == "" && err.code != 0 {
+		errStr = errorcode.ErrorCode_name[int32(err.code)]
 	}
 
 	// 如果内部还有嵌套 error，就拼接上去
-	if err.error != nil {
+	if err.err != nil {
 		if errStr != "" {
 			errStr += ": "
 		}
-		errStr += err.error.Error()
+		errStr += err.err.Error()
 	}
 
 	return errStr
 }
 
 
-func NewError(code int, message string) *Error {
+func NewError(code int, message string,err ...error) *Error {
 	return &Error{
-		Code:    code,
-		Message: message,
+		code:    code,
+		message: message,
+		err:	 err[0],
 	}
 }
 
-func NewErrorFromCodeAutoMsg(code errorcode.ErrorCode) *Error {
+func NewErrorFromCodeAutoMsg(code errorcode.ErrorCode,err ...error) *Error {
 	return NewError(int(code), code.String()) // 自动用枚举名作为 message
 }
+
+func (err *Error) Code() int{
+	return err.code
+}
+
 
 `, modelName, importPath)
 }
